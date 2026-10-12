@@ -1,0 +1,27 @@
+# Python-generated files
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# Local environment settings
+.env
+.env.*
+!.env.example
+
+# Local SQLite databases
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+data/*.db
+
+# IDE settings
+.idea/
+
+# Local development prompts
+chatgpe_temp_prompt.md
