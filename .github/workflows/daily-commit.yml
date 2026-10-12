@@ -1,0 +1,35 @@
+name: Daily Commit
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+      timezone: "Asia/Kolkata"
+  workflow_dispatch:
+
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Make a change
+        run: |
+          touch log.txt
+          if [ $(wc -l < log.txt) -gt 1000 ]; then
+            echo "Clearing log.txt"
+            echo "$(date) - commit by GitHub Actions" > log.txt
+          else
+            echo "$(date) - commit by GitHub Actions" >> log.txt
+          fi
+
+      - name: Commit changes
+        continue-on-error: true
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git add .
+          git commit -m "daily commit - $(date)" || echo "nothing to commit"
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:${{ github.ref_name }}
