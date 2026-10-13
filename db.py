@@ -47,3 +47,23 @@ def create_application(
     return application_id
 
 
+def get_all_applications():
+    conn = get_connection()
+    try:
+        ret = conn.execute("SELECT id,company,role,status,created_at "
+                           "FROM applications ORDER BY created_at DESC ")
+        record_data = ret.fetchall()
+    finally:
+        conn.close()
+    return record_data
+
+def get_application_by_id(application_id):
+    conn = get_connection()
+    try:
+        ret = conn.execute("SELECT * FROM applications WHERE id=?",
+                           (application_id,))
+        record_data = ret.fetchone()
+    finally:
+        conn.close()
+    return record_data
+
