@@ -1,6 +1,7 @@
 import streamlit as st
 
-from db import create_application,get_all_applications, get_application_by_id
+from db import create_application,get_all_applications, get_application_by_id,update_application_status
+from db import update_application_priority
 import sqlite3
 
 st.set_page_config(page_title="Personal Interview CRM")
@@ -25,6 +26,22 @@ def record_data_dict(record_data):
     for re in record_data:
         record_dict[re[0]] = re[1] + " - " + re[2]
     return record_dict
+
+application_status_dict = {
+    0 : "Applied",
+    1: "Interviewing",
+    2: "Application Rejected",
+    3: "Application Withdrawn",
+    4: "Offer Received",
+    5: "Offer Accepted",
+    6 : "Offer Declined"
+}
+
+application_priority_dict = {
+    1 : "Low",
+    2: "Medium",
+    3: "High",
+}
 
 if section == "Jobs":
     with st.form("application_form"):
@@ -77,9 +94,19 @@ if section == "Jobs":
                 st.write(result[6])
             if result[7]:
                 st.write(f"Created At : {result[7]}")
-
-            st.write(result)
-
+        selected_status = st.selectbox("Select Status", application_status_dict.keys(),
+                                       format_func= application_status_dict.get,index=result[9])
+        selected_priority = st.selectbox("Select Priority", application_priority_dict.keys(),
+                                       format_func= application_priority_dict.get, index=result[11]-1)
+        if st.button("Save Changes"):
+            try:
+                if selected_status != result[9]:
+                    update_application_status(selected_application, selected_status)
+                if selected_priority != result[11]:
+                    update_application_priority(selected_application, selected_priority)
+                st.success("Application Changes Saved successfully! ID: {}".format(selected_application))
+            except sqlite3.Error as error:
+                st.error(f"Failed to save application with error {error}")
     else :
         st.info("No saved applications yet.")
 else:

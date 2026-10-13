@@ -67,3 +67,18 @@ def get_application_by_id(application_id):
         conn.close()
     return record_data
 
+def update_application_status(application_id, new_status):
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE applications SET status = ? WHERE id=?",(new_status, application_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+def update_application_priority(application_id, new_priority):
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE applications SET priority = ? WHERE id=?",(new_priority, application_id))
+        conn.commit()
+    finally:
+        conn.close()
