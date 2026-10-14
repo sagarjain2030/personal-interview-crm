@@ -82,3 +82,13 @@ def update_application_priority(application_id, new_priority):
         conn.commit()
     finally:
         conn.close()
+
+def update_application_details(application_id,  company, role, raw_job_description, jd_url, location, notes):
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE applications SET company = ?, role = ?,"
+                     " raw_job_description = ?, jd_url = ?, location = ?, "
+                     "notes = ? WHERE id = ?", (company, role, raw_job_description, jd_url, location, notes, application_id))
+        conn.commit()
+    finally:
+        conn.close()

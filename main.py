@@ -1,6 +1,6 @@
 import streamlit as st
 
-from db import create_application,get_all_applications, get_application_by_id,update_application_status
+from db import create_application,get_all_applications, get_application_by_id,update_application_status, update_application_details
 from db import update_application_priority
 import sqlite3
 
@@ -79,21 +79,54 @@ if section == "Jobs":
                                             format_func= application_form_options.get)
         result = get_application_by_id(selected_application)
         if result:
-            st.subheader(result[1])
-            st.write(f"Role : {result[2]}")
-            if result[3]:
-                st.subheader("Job Description")
-                st.write(result[3])
-            if result[4]:
-                st.subheader("Job URL")
-                st.write(result[4])
-            if result[5]:
-                st.write(f"Location : {result[5]}")
-            if result[6]:
-                st.subheader("Notes")
-                st.write(result[6])
-            if result[7]:
-                st.write(f"Created At : {result[7]}")
+            with st.form("Edit Application"):
+                edit_company_details = st.text_input(label="Edit Company", value=result[1], key="EditCompany_" + result[0])
+                edit_role_details = st.text_input(label="Edit Role",value=result[2], key="EditRole_"+ result[0])
+                value_job_description = ""
+                if result[3]:
+                    value_job_description = result[3]
+                edit_job_description_details = st.text_area(label="Edit Job Description", value=value_job_description, key="EditJobDescription_" + result[0])
+                value_job_url = ""
+                if result[4]:
+                    value_job_url = result[4]
+                edit_job_url_details = st.text_input(label="Edit Job url", value=value_job_url, key="EditJobURL_" + result[0])
+                value_location = ""
+                if result[5]:
+                    value_location = result[5]
+                edit_location_details = st.text_input(label="Edit Location", value=value_location, key="EditLocation_" + result[0])
+                value_notes = ""
+                if result[6]:
+                    value_notes = result[6]
+                edit_notes_details = st.text_area(label="Edit Job Notes", value=value_notes,key="EditJobnotes_" + result[0])
+                if result[7]:
+                    st.write(f"Created At : {result[7]}")
+                preview_changes_button_value = st.form_submit_button("Preview Changes")
+                save_edited_details_button_value = st.form_submit_button("Save Edit Changes")
+            if preview_changes_button_value:
+                edit_company_details = edit_company_details.strip()
+                edit_role_details = edit_role_details.strip()
+                if not edit_company_details or not edit_role_details:
+                    st.error("Company and Role details are required.")
+                else:
+                    st.write(f"Company : {edit_company_details}")
+                    st.write(f"Role : {edit_role_details}")
+                    st.write(f"Job Description : {edit_job_description_details}")
+                    st.write(f"Job URL : {edit_job_url_details}")
+                    st.write(f"Location : {edit_location_details}")
+                    st.write(f"Notes : {edit_notes_details}")
+            if save_edited_details_button_value:
+                edit_company_details = edit_company_details.strip()
+                edit_role_details = edit_role_details.strip()
+                if not edit_company_details or not edit_role_details:
+                    st.error("Company and Role details are required.")
+                else:
+                    try:
+                        update_application_details(selected_application, edit_company_details,
+                                               edit_role_details,edit_job_description_details, edit_job_url_details,
+                                               edit_location_details, edit_notes_details)
+                        st.success(f"Application {selected_application} is updated successfully!")
+                    except sqlite3.Error as error:
+                        st.error(f"Failed to save edited application with error {error}")
         selected_status = st.selectbox("Select Status", application_status_dict.keys(),
                                        format_func= application_status_dict.get,index=result[9])
         selected_priority = st.selectbox("Select Priority", application_priority_dict.keys(),
