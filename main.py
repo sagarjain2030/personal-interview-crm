@@ -1,7 +1,7 @@
 import streamlit as st
 
 from db import create_application,get_all_applications, get_application_by_id,update_application_status, update_application_details
-from db import update_application_priority
+from db import update_application_priority, get_interviews_by_application_id
 import sqlite3
 
 st.set_page_config(page_title="Personal Interview CRM")
@@ -42,6 +42,22 @@ application_priority_dict = {
     2: "Medium",
     3: "High",
 }
+
+interview_round_type_dict = {
+    0 : "Miscellaneous",
+    1 : "Recruiter / HR Screening",
+    2 : "Technical",
+    3 : "Manager",
+    4 : "Behavioral",
+}
+
+interview_result_type_dict = {
+    0 : "Scheduled",
+    1 : "Passed",
+    2 : "Failed/Rejected",
+    3 : "Cancelled",
+}
+
 
 if section == "Jobs":
     with st.form("application_form"):
@@ -142,7 +158,32 @@ if section == "Jobs":
                 st.error(f"Failed to save application with error {error}")
     else :
         st.info("No saved applications yet.")
+elif section == "Interviews":
+    application_list = get_all_applications()
+    if application_list:
+        application_selection_list = record_data_dict(application_list)
+        selected_application = st.selectbox("Select Application", application_selection_list.keys(),
+                                   format_func=application_selection_list.get)
+        try:
+            interviews_records = get_interviews_by_application_id(selected_application)
+            if interviews_records:
+                columns = list(zip(*interviews_records))
+                column_names = ["id", "round_number", "round_type", "result"]
+                data = dict(zip(column_names, columns))
+                for v in data["round_type"]:
+                    v = interview_round_type_dict[v]
+                for v in data["result"]:
+                    v = interview_result_type_dict[v]
+                st.dataframe(data)
+            else:
+                st.info("No interviews recorded.")
+        except sqlite3.Error as error:
+            st.error(f"Failed to retrieve interviews with error {error}")
+    else:
+        st.info("No saved applications yet.")
 else:
     st.write(placeholders[section])
+
+
 
 

@@ -92,3 +92,33 @@ def update_application_details(application_id,  company, role, raw_job_descripti
         conn.commit()
     finally:
         conn.close()
+
+def create_interview(
+    application_id,
+    round_number,
+    round_type
+):
+    interview_id = str(uuid.uuid4())
+
+    insert_stmt = """
+        INSERT INTO interviews (id,application_id,round_type,round_number) VALUES (?, ?, ?, ?)
+    """
+    conn = get_connection()
+    try:
+        conn.execute(
+            insert_stmt,(interview_id,application_id,round_type,round_number))
+        conn.commit()
+    finally:
+        conn.close()
+    return interview_id
+
+def get_interviews_by_application_id(application_id):
+    conn = get_connection()
+    try:
+        ret = conn.execute("SELECT id, round_number, round_type, result FROM interviews"
+                           " WHERE application_id=? ORDER BY round_number ASC",
+                           (application_id,))
+        record_data = ret.fetchall()
+    finally:
+        conn.close()
+    return record_data
