@@ -15,17 +15,16 @@ The planned workflow is:
 
 ## Current features
 
-**Implemented (through Step 3):**
+**Implemented (through Step 7):**
 
 - Streamlit navigation with **Jobs**, **Interviews**, **Questions**, and **Insights** sections.
-- An **Add Application** form in the Jobs section, with fields for company, role, full job description, JD URL, location, and notes.
-- Required-field validation for company and role.
-- Local SQLite storage for newly created applications.
-- Unique application IDs, UTC creation timestamps, and database defaults.
-- Preservation of the original multiline job description.
-- Success and database-error messages when saving an application.
+- **Jobs:** add an application (company, role, full job description, JD URL, location, notes) with required-field validation; list saved applications; select one to edit its details, status, and priority.
+- **Interviews:** select an application, add interview rounds (round number and round type), and view that application's rounds ordered by round number with readable round-type and result labels. New rounds default to the *Scheduled* result.
+- **Questions:** select an application and one of its interview rounds, add a question with your actual answer and an optional better answer, and view that round's saved questions in the order they were added.
+- The database is created automatically from `schema.sql` on first run.
+- Local SQLite storage with UUID primary keys, integer-coded status/type/result values, and success/error messages for database operations.
 
-**Not implemented yet:** Application listing/editing, interview and question management, insights, knowledge-gap tracking, and AI-powered analysis. The Interviews, Questions, and Insights sections currently contain placeholders.
+**Not implemented yet:** Interview and question editing/deletion, topics and knowledge-gap tracking, insights, and AI-powered analysis. The Insights section currently contains a placeholder.
 
 ## Tech stack
 
@@ -40,7 +39,7 @@ Hugging Face integration and optional Pydantic validation are being considered f
 ```text
 personal-interview-crm/
 ├── main.py             # Streamlit interface and navigation
-├── db.py               # SQLite connection, initialization, and inserts
+├── db.py               # SQLite connection, initialization, inserts, and queries
 ├── schema.sql          # Database table definitions
 ├── requirements.txt    # Python dependencies
 ├── .gitignore          # Local files excluded from Git
@@ -63,7 +62,7 @@ pip install -r requirements.txt
 streamlit run main.py
 ```
 
-The app opens locally in your browser. On a fresh setup, the SQLite tables must be initialized using the project's `init_db()` helper in `db.py` if your startup flow does not already call it. The helper reads `schema.sql` and creates the local database as needed.
+The app opens locally in your browser. On startup it calls `init_db()` from `db.py`, which creates `data/interview_crm.db` from `schema.sql` if needed. Existing databases are left unchanged.
 
 ## Local data and privacy
 
@@ -73,11 +72,10 @@ If you fork or clone this project, your personal data is not included. Review fi
 
 ## Development status
 
-**Step 3: Complete — Manual Add Job/Application.**
-
-The application form, SQLite insertion, validation, and persistence were verified. One verification remains outstanding: checking database record counts before and after sidebar navigation and browser refresh to independently confirm that those actions do not create duplicate records.
-
-**Step 4: Not started.** Its scope will be defined by the project roadmap before implementation.
+- **Steps 1–5: Complete** — setup, schema, add/list/view/edit applications, status and priority.
+- **Step 6: Complete** — record interview rounds for an application and list them with readable labels.
+- **Step 7: Complete** — record interview questions with actual and better answers per interview round.
+- **Step 8: Not started** — recurring interview questions and knowledge gaps.
 
 ## Project approach
 

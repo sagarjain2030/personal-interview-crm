@@ -27,7 +27,7 @@ def create_application(
     role,
     raw_job_description=None,
     jd_url=None,
-     location=None,
+    location=None,
     notes=None
 ):
     application_id = str(uuid.uuid4())
@@ -118,6 +118,39 @@ def get_interviews_by_application_id(application_id):
         ret = conn.execute("SELECT id, round_number, round_type, result FROM interviews"
                            " WHERE application_id=? ORDER BY round_number ASC",
                            (application_id,))
+        record_data = ret.fetchall()
+    finally:
+        conn.close()
+    return record_data
+
+def create_interview_question(
+    interview_id,
+    question,
+    apparent_answer=None,
+    better_answer=None
+):
+    question_id = str(uuid.uuid4())
+
+    insert_stmt = """
+        INSERT INTO interview_questions (id,interview_id,question,apparent_answer,better_answer)
+            VALUES (?, ?, ?, ?, ?)
+    """
+    conn = get_connection()
+    try:
+        conn.execute(
+            insert_stmt,(question_id,interview_id,question,apparent_answer,better_answer))
+        conn.commit()
+    finally:
+        conn.close()
+    return question_id
+
+def get_questions_by_interview_id(interview_id):
+    # interview_questions has no created_at column; rowid preserves insertion order.
+    conn = get_connection()
+    try:
+        ret = conn.execute("SELECT id, question, apparent_answer, better_answer FROM interview_questions"
+                           " WHERE interview_id=? ORDER BY rowid ASC",
+                           (interview_id,))
         record_data = ret.fetchall()
     finally:
         conn.close()

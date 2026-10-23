@@ -1,65 +1,89 @@
-import streamlit as st
-
-from db import create_application,get_all_applications, get_application_by_id,update_application_status, update_application_details
-from db import update_application_priority, get_interviews_by_application_id
 import sqlite3
 
-st.set_page_config(page_title="Personal Interview CRM")
+import streamlit as st
 
-st.title("Personal Interview CRM")
-
-section = st.sidebar.radio(
-    "Navigation",
-    ["Jobs", "Interviews", "Questions", "Insights"],
+from db import (
+    init_db,
+    create_application,
+    get_all_applications,
+    get_application_by_id,
+    update_application_status,
+    update_application_details,
+    update_application_priority,
+    create_interview,
+    get_interviews_by_application_id,
+    create_interview_question,
+    get_questions_by_interview_id,
 )
 
-placeholders = {
-    "Jobs": "Saved jobs will appear here in a later step.",
-    "Interviews": "Interview records will appear here in a later step.",
-    "Questions": "Interview questions will appear here in a later step.",
-    "Insights": "Interview insights will appear here in a later step.",
-}
-st.header(section)
-
-def record_data_dict(record_data):
-    record_dict = dict()
-    for re in record_data:
-        record_dict[re[0]] = re[1] + " - " + re[2]
-    return record_dict
-
-application_status_dict = {
-    0 : "Applied",
+APPLICATION_STATUS_LABELS = {
+    0: "Applied",
     1: "Interviewing",
     2: "Application Rejected",
     3: "Application Withdrawn",
     4: "Offer Received",
     5: "Offer Accepted",
-    6 : "Offer Declined"
+    6: "Offer Declined",
 }
 
-application_priority_dict = {
-    1 : "Low",
+APPLICATION_PRIORITY_LABELS = {
+    1: "Low",
     2: "Medium",
     3: "High",
 }
 
-interview_round_type_dict = {
-    0 : "Miscellaneous",
-    1 : "Recruiter / HR Screening",
-    2 : "Technical",
-    3 : "Manager",
-    4 : "Behavioral",
+INTERVIEW_ROUND_TYPE_LABELS = {
+    0: "Miscellaneous",
+    1: "Recruiter / HR Screening",
+    2: "Technical Interview",
+    3: "Hiring Manager Interview",
+    4: "Behavioral / Culture Fit",
 }
 
-interview_result_type_dict = {
-    0 : "Scheduled",
-    1 : "Passed",
-    2 : "Failed/Rejected",
-    3 : "Cancelled",
+INTERVIEW_RESULT_LABELS = {
+    0: "Scheduled",
+    1: "Passed",
+    2: "Failed / Rejected",
+    3: "Cancelled",
+}
+
+PLACEHOLDERS = {
+    "Insights": "Interview insights will appear here in a later step.",
 }
 
 
-if section == "Jobs":
+def unique_labels(labels):
+    """Append a short ID suffix to duplicate labels so they stay distinguishable in a selectbox."""
+    label_values = list(labels.values())
+    return {
+        record_id: f"{label} ({record_id[:8]})" if label_values.count(label) > 1 else label
+        for record_id, label in labels.items()
+    }
+
+
+def application_labels(applications):
+    """Map each application UUID to a readable 'Company - Role' label."""
+    return unique_labels({app[0]: f"{app[1]} - {app[2]}" for app in applications})
+
+
+def interview_labels(interviews):
+    """Map each interview UUID to a readable 'Round N — Round Type' label."""
+    return unique_labels({
+        interview[0]: f"Round {interview[1]} — {INTERVIEW_ROUND_TYPE_LABELS[interview[2]]}"
+        for interview in interviews
+    })
+
+
+def load_applications():
+    """Return all applications, or None after showing an error if the query fails."""
+    try:
+        return get_all_applications()
+    except sqlite3.Error as error:
+        st.error(f"Failed to load applications with error {error}")
+        return None
+
+
+def render_jobs_page():
     with st.form("application_form"):
         company = st.text_input("Company").strip()
         role = st.text_input("Role").strip()
@@ -69,121 +93,223 @@ if section == "Jobs":
         notes = st.text_area("Notes")
         submitted = st.form_submit_button("Save Application")
     if submitted:
-        if len(company) == 0 or len(role) == 0:
+        if not company or not role:
             st.error("Company and Role are required.")
         else:
             try:
                 application_id = create_application(
-                    company = company,
-                    role = role,
-                    raw_job_description= raw_job_description,
+                    company=company,
+                    role=role,
+                    raw_job_description=raw_job_description,
                     jd_url=jd_url,
                     location=location,
                     notes=notes)
-                st.success("Application saved successfully! ID: {}".format(application_id))
+                st.success(f"Application saved successfully! ID: {application_id}")
             except sqlite3.Error as error:
                 st.error(f"Failed to save application with error {error}")
+
     st.header("Saved Applications")
-    record_data = get_all_applications()
-    if record_data:
-        columns = list(zip(*record_data))
-        column_names = ["id", "Company",  "Role", "Status", "Created_at"]
-        data = dict(zip(column_names,columns))
-        st.dataframe(data)
-        application_form_options = record_data_dict(record_data)
-        selected_application = st.selectbox("Select Application", application_form_options.keys(),
-                                            format_func= application_form_options.get)
-        result = get_application_by_id(selected_application)
-        if result:
-            with st.form("Edit Application"):
-                edit_company_details = st.text_input(label="Edit Company", value=result[1], key="EditCompany_" + result[0])
-                edit_role_details = st.text_input(label="Edit Role",value=result[2], key="EditRole_"+ result[0])
-                value_job_description = ""
-                if result[3]:
-                    value_job_description = result[3]
-                edit_job_description_details = st.text_area(label="Edit Job Description", value=value_job_description, key="EditJobDescription_" + result[0])
-                value_job_url = ""
-                if result[4]:
-                    value_job_url = result[4]
-                edit_job_url_details = st.text_input(label="Edit Job url", value=value_job_url, key="EditJobURL_" + result[0])
-                value_location = ""
-                if result[5]:
-                    value_location = result[5]
-                edit_location_details = st.text_input(label="Edit Location", value=value_location, key="EditLocation_" + result[0])
-                value_notes = ""
-                if result[6]:
-                    value_notes = result[6]
-                edit_notes_details = st.text_area(label="Edit Job Notes", value=value_notes,key="EditJobnotes_" + result[0])
-                if result[7]:
-                    st.write(f"Created At : {result[7]}")
-                preview_changes_button_value = st.form_submit_button("Preview Changes")
-                save_edited_details_button_value = st.form_submit_button("Save Edit Changes")
-            if preview_changes_button_value:
-                edit_company_details = edit_company_details.strip()
-                edit_role_details = edit_role_details.strip()
-                if not edit_company_details or not edit_role_details:
-                    st.error("Company and Role details are required.")
-                else:
-                    st.write(f"Company : {edit_company_details}")
-                    st.write(f"Role : {edit_role_details}")
-                    st.write(f"Job Description : {edit_job_description_details}")
-                    st.write(f"Job URL : {edit_job_url_details}")
-                    st.write(f"Location : {edit_location_details}")
-                    st.write(f"Notes : {edit_notes_details}")
-            if save_edited_details_button_value:
-                edit_company_details = edit_company_details.strip()
-                edit_role_details = edit_role_details.strip()
-                if not edit_company_details or not edit_role_details:
-                    st.error("Company and Role details are required.")
-                else:
-                    try:
-                        update_application_details(selected_application, edit_company_details,
-                                               edit_role_details,edit_job_description_details, edit_job_url_details,
-                                               edit_location_details, edit_notes_details)
-                        st.success(f"Application {selected_application} is updated successfully!")
-                    except sqlite3.Error as error:
-                        st.error(f"Failed to save edited application with error {error}")
-        selected_status = st.selectbox("Select Status", application_status_dict.keys(),
-                                       format_func= application_status_dict.get,index=result[9])
-        selected_priority = st.selectbox("Select Priority", application_priority_dict.keys(),
-                                       format_func= application_priority_dict.get, index=result[11]-1)
-        if st.button("Save Changes"):
+    applications = load_applications()
+    if applications is None:
+        return
+    if not applications:
+        st.info("No saved applications yet.")
+        return
+
+    column_names = ["id", "Company", "Role", "Status", "Created_at"]
+    st.dataframe(dict(zip(column_names, zip(*applications))))
+
+    labels = application_labels(applications)
+    selected_application = st.selectbox("Select Application", labels.keys(), format_func=labels.get)
+    result = get_application_by_id(selected_application)
+    if not result:
+        st.error("The selected application could not be loaded.")
+        return
+
+    with st.form("Edit Application"):
+        edit_company_details = st.text_input(label="Edit Company", value=result[1], key="EditCompany_" + result[0])
+        edit_role_details = st.text_input(label="Edit Role", value=result[2], key="EditRole_" + result[0])
+        edit_job_description_details = st.text_area(label="Edit Job Description", value=result[3] or "",
+                                                    key="EditJobDescription_" + result[0])
+        edit_job_url_details = st.text_input(label="Edit Job url", value=result[4] or "", key="EditJobURL_" + result[0])
+        edit_location_details = st.text_input(label="Edit Location", value=result[5] or "",
+                                              key="EditLocation_" + result[0])
+        edit_notes_details = st.text_area(label="Edit Job Notes", value=result[6] or "", key="EditJobnotes_" + result[0])
+        if result[7]:
+            st.write(f"Created At : {result[7]}")
+        preview_changes_button_value = st.form_submit_button("Preview Changes")
+        save_edited_details_button_value = st.form_submit_button("Save Edit Changes")
+
+    if preview_changes_button_value or save_edited_details_button_value:
+        edit_company_details = edit_company_details.strip()
+        edit_role_details = edit_role_details.strip()
+        if not edit_company_details or not edit_role_details:
+            st.error("Company and Role details are required.")
+        elif preview_changes_button_value:
+            st.write(f"Company : {edit_company_details}")
+            st.write(f"Role : {edit_role_details}")
+            st.write(f"Job Description : {edit_job_description_details}")
+            st.write(f"Job URL : {edit_job_url_details}")
+            st.write(f"Location : {edit_location_details}")
+            st.write(f"Notes : {edit_notes_details}")
+        else:
             try:
-                if selected_status != result[9]:
-                    update_application_status(selected_application, selected_status)
-                if selected_priority != result[11]:
-                    update_application_priority(selected_application, selected_priority)
-                st.success("Application Changes Saved successfully! ID: {}".format(selected_application))
+                update_application_details(selected_application, edit_company_details,
+                                           edit_role_details, edit_job_description_details, edit_job_url_details,
+                                           edit_location_details, edit_notes_details)
+                st.success(f"Application {selected_application} is updated successfully!")
             except sqlite3.Error as error:
-                st.error(f"Failed to save application with error {error}")
-    else :
-        st.info("No saved applications yet.")
-elif section == "Interviews":
-    application_list = get_all_applications()
-    if application_list:
-        application_selection_list = record_data_dict(application_list)
-        selected_application = st.selectbox("Select Application", application_selection_list.keys(),
-                                   format_func=application_selection_list.get)
+                st.error(f"Failed to save edited application with error {error}")
+
+    selected_status = st.selectbox("Select Status", APPLICATION_STATUS_LABELS.keys(),
+                                   format_func=APPLICATION_STATUS_LABELS.get, index=result[9])
+    selected_priority = st.selectbox("Select Priority", APPLICATION_PRIORITY_LABELS.keys(),
+                                     format_func=APPLICATION_PRIORITY_LABELS.get, index=result[11] - 1)
+    if st.button("Save Changes"):
         try:
-            interviews_records = get_interviews_by_application_id(selected_application)
-            if interviews_records:
-                columns = list(zip(*interviews_records))
-                column_names = ["id", "round_number", "round_type", "result"]
-                data = dict(zip(column_names, columns))
-                for v in data["round_type"]:
-                    v = interview_round_type_dict[v]
-                for v in data["result"]:
-                    v = interview_result_type_dict[v]
-                st.dataframe(data)
-            else:
-                st.info("No interviews recorded.")
+            if selected_status != result[9]:
+                update_application_status(selected_application, selected_status)
+            if selected_priority != result[11]:
+                update_application_priority(selected_application, selected_priority)
+            st.success(f"Application Changes Saved successfully! ID: {selected_application}")
         except sqlite3.Error as error:
-            st.error(f"Failed to retrieve interviews with error {error}")
-    else:
-        st.info("No saved applications yet.")
+            st.error(f"Failed to save application with error {error}")
+
+
+def render_interviews_page():
+    applications = load_applications()
+    if applications is None:
+        return
+    if not applications:
+        st.info("No saved applications yet. Add one on the Jobs page first.")
+        return
+
+    labels = application_labels(applications)
+    selected_application = st.selectbox("Select Application", labels.keys(), format_func=labels.get)
+
+    # Handle the form before loading the list so a newly saved round appears immediately.
+    st.subheader("Add Interview Round")
+    with st.form("interview_form", clear_on_submit=True):
+        round_number = st.number_input("Round Number", min_value=1, value=1, step=1)
+        round_type = st.selectbox("Round Type", INTERVIEW_ROUND_TYPE_LABELS.keys(),
+                                  format_func=INTERVIEW_ROUND_TYPE_LABELS.get)
+        submitted = st.form_submit_button("Save Interview")
+    if submitted:
+        if round_number is None or int(round_number) < 1:
+            st.error("Round number must be a whole number of 1 or more.")
+        else:
+            try:
+                create_interview(selected_application, int(round_number), round_type)
+                st.success(f"Round {int(round_number)} ({INTERVIEW_ROUND_TYPE_LABELS[round_type]}) "
+                           f"saved for {labels[selected_application]}.")
+            except sqlite3.Error as error:
+                st.error(f"Failed to save interview with error {error}")
+
+    st.subheader("Interview Rounds")
+    try:
+        interviews = get_interviews_by_application_id(selected_application)
+    except sqlite3.Error as error:
+        st.error(f"Failed to retrieve interviews with error {error}")
+        return
+    if not interviews:
+        st.info("No interviews recorded for this application yet.")
+        return
+
+    rows = [
+        {
+            "Interview ID": interview_id,
+            "Round Number": number,
+            "Round Type": INTERVIEW_ROUND_TYPE_LABELS[type_value],
+            "Result": INTERVIEW_RESULT_LABELS[result_value],
+        }
+        for interview_id, number, type_value, result_value in interviews
+    ]
+    st.dataframe(rows, hide_index=True)
+
+
+def render_questions_page():
+    applications = load_applications()
+    if applications is None:
+        return
+    if not applications:
+        st.info("No saved applications yet. Add one on the Jobs page first.")
+        return
+
+    labels = application_labels(applications)
+    selected_application = st.selectbox("Select Application", labels.keys(), format_func=labels.get)
+
+    try:
+        interviews = get_interviews_by_application_id(selected_application)
+    except sqlite3.Error as error:
+        st.error(f"Failed to retrieve interviews with error {error}")
+        return
+    if not interviews:
+        st.info("No interviews recorded for this application yet. Add one on the Interviews page first.")
+        return
+
+    round_labels = interview_labels(interviews)
+    selected_interview = st.selectbox("Select Interview Round", round_labels.keys(), format_func=round_labels.get)
+
+    # Handle the form before loading the list so a newly saved question appears immediately.
+    st.subheader("Add Interview Question")
+    with st.form("question_form", clear_on_submit=True):
+        question = st.text_area("Interview Question")
+        apparent_answer = st.text_area("My Answer / Apparent Answer (optional)")
+        better_answer = st.text_area("Better Answer (optional)")
+        submitted = st.form_submit_button("Save Question")
+    if submitted:
+        question = question.strip()
+        if not question:
+            st.error("Interview question is required.")
+        else:
+            try:
+                create_interview_question(selected_interview, question,
+                                          apparent_answer.strip() or None, better_answer.strip() or None)
+                st.success(f"Question saved for {round_labels[selected_interview]}.")
+            except sqlite3.Error as error:
+                st.error(f"Failed to save question with error {error}")
+
+    st.subheader("Saved Questions")
+    try:
+        questions = get_questions_by_interview_id(selected_interview)
+    except sqlite3.Error as error:
+        st.error(f"Failed to retrieve questions with error {error}")
+        return
+    if not questions:
+        st.info("No questions recorded for this interview yet.")
+        return
+
+    # st.text shows the stored text as-is (multiline, no Markdown interpretation).
+    for number, (_, question_text, apparent_text, better_text) in enumerate(questions, start=1):
+        with st.container(border=True):
+            st.markdown(f"**Question {number}**")
+            st.text(question_text)
+            st.markdown("**My Answer / Apparent Answer**")
+            st.text(apparent_text or "Not recorded")
+            st.markdown("**Better Answer**")
+            st.text(better_text or "Not recorded")
+
+
+st.set_page_config(page_title="Personal Interview CRM")
+st.title("Personal Interview CRM")
+
+try:
+    init_db()
+except (sqlite3.Error, OSError) as error:
+    st.error(f"Failed to initialize the database with error {error}")
+    st.stop()
+
+section = st.sidebar.radio(
+    "Navigation",
+    ["Jobs", "Interviews", "Questions", "Insights"],
+)
+st.header(section)
+
+if section == "Jobs":
+    render_jobs_page()
+elif section == "Interviews":
+    render_interviews_page()
+elif section == "Questions":
+    render_questions_page()
 else:
-    st.write(placeholders[section])
-
-
-
-
+    st.write(PLACEHOLDERS[section])
