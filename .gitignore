@@ -23,6 +23,11 @@ data/*.db
 # IDE settings
 .idea/
 
+# Test caches and Playwright artifacts (screenshots, traces, videos)
+.pytest_cache/
+test-results/
+playwright-report/
+
 # Local development prompts
 chatgpe_temp_prompt.md
 Personal_Interview_CRM_Handoff_Step5.md
@@ -30,3 +35,4 @@ Personal_Interview_CRM_Handoff_Step6.md
 Personal_Interview_CRM_Handoff_Step6_2C.md
 Personal_Interview_CRM_Handoff_Step6_Complete.md
 Personal_Interview_CRM_Handoff_Step7_Complete.md
+Personal_Interview_CRM_Testing_Handoff_Steps1_to7.md

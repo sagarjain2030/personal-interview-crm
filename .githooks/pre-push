@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Git pre-push hook: run the complete pytest suite (database, AppTest and headless
+# Playwright browser tests) and block the push if anything fails.
+#
+# Install once per clone:   git config core.hooksPath .githooks
+# Skip in an emergency:     git push --no-verify
+#
+# Tests always use temporary databases; data/interview_crm.db is never opened for writing
+# (see tests/conftest.py, which also fails the run if that file's hash changes).
+
+set -u
+
+repo_root="$(git rev-parse --show-toplevel)" || exit 1
+cd "$repo_root" || exit 1
+
+if [ -x ".venv/bin/python" ]; then
+    python=".venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+    python="python3"
+else
+    echo "pre-push: no Python found. Create .venv and install requirements-dev.txt." >&2
+    exit 1
+fi
+
+if ! "$python" -c "import pytest, pytest_playwright, streamlit" >/dev/null 2>&1; then
+    echo "pre-push: test dependencies missing for $python. Run:" >&2
+    echo "    $python -m pip install -r requirements-dev.txt" >&2
+    echo "    $python -m playwright install chromium" >&2
+    exit 1
+fi
+
+if [ -n "$(git status --porcelain)" ]; then
+    echo "pre-push: note - you have uncommitted changes; tests run on the working tree, not only on the pushed commits."
+fi
+
+echo "pre-push: running the full test suite (headless browser tests included)..."
+if "$python" -m pytest -q; then
+    echo "pre-push: all tests passed - continuing with push."
+    exit 0
+fi
+
+echo "" >&2
+echo "pre-push: tests FAILED - push blocked." >&2
+echo "pre-push: failing browser tests leave screenshots/traces in test-results/." >&2
+echo "pre-push: fix the failures, or bypass deliberately with: git push --no-verify" >&2
+exit 1

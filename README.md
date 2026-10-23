@@ -42,6 +42,12 @@ personal-interview-crm/
 ├── db.py               # SQLite connection, initialization, inserts, and queries
 ├── schema.sql          # Database table definitions
 ├── requirements.txt    # Python dependencies
+├── requirements-dev.txt # Test dependencies (pytest, Playwright)
+├── pytest.ini          # Test configuration
+├── TESTING.md          # How to run the tests
+├── tests/              # db/, apptest/ and e2e/ (browser) tests
+├── .githooks/pre-push  # Runs the full test suite before git push (opt-in)
+├── .github/workflows/  # tests.yml (CI) and daily-commit.yml
 ├── .gitignore          # Local files excluded from Git
 └── data/               # Local database directory (not committed)
 ```
@@ -63,6 +69,21 @@ streamlit run main.py
 ```
 
 The app opens locally in your browser. On startup it calls `init_db()` from `db.py`, which creates `data/interview_crm.db` from `schema.sql` if needed. Existing databases are left unchanged.
+
+## Testing
+
+Automated tests cover Steps 1–7 at three levels: database, Streamlit AppTest, and real-browser Playwright. They always run against temporary databases, never `data/interview_crm.db`.
+
+```bash
+pip install -r requirements-dev.txt
+playwright install chromium
+pytest                  # all tests, headless
+pytest -m "not e2e"     # skip the browser tests
+pytest tests/e2e --headed --slowmo 500 -v   # watch the browser tests
+git config core.hooksPath .githooks         # once per clone: test before every push
+```
+
+GitHub Actions (`.github/workflows/tests.yml`) runs the full suite on every push and pull request. See [TESTING.md](TESTING.md) for details.
 
 ## Local data and privacy
 

@@ -1,3 +1,4 @@
+import os
 import sqlite3 as sql
 import pathlib
 import uuid
@@ -5,7 +6,8 @@ from datetime import datetime, timezone
 
 BASE_DIR = pathlib.Path(__file__).parent.absolute()
 SCHEMA_PATH =  pathlib.Path(BASE_DIR, 'schema.sql')
-DB_PATH = pathlib.Path(BASE_DIR, 'data/interview_crm.db')
+# INTERVIEW_CRM_DB_PATH lets automated tests point the app at an isolated database.
+DB_PATH = pathlib.Path(os.environ.get("INTERVIEW_CRM_DB_PATH", BASE_DIR / 'data' / 'interview_crm.db'))
 
 def get_connection():
     conn = sql.connect(DB_PATH)
