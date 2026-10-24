@@ -22,6 +22,7 @@ _SESSION_DIR = pathlib.Path(tempfile.mkdtemp(prefix="crm_tests_"))
 os.environ["INTERVIEW_CRM_DB_PATH"] = str(_SESSION_DIR / "fallback.db")
 
 import db  # noqa: E402  (must be imported after the environment override above)
+from auth_helpers import OTHER_USER, TEST_USER  # noqa: E402
 
 
 def _file_hash(path):
@@ -62,14 +63,27 @@ def fetch_rows(test_db_path):
 
 
 @pytest.fixture
-def seeded(test_db_path):
-    """Two applications (A, B) with interview rounds and one question, created through db.py helpers."""
-    app_a = db.create_application("Acme Corp", "Python Developer", notes="seeded")
-    app_b = db.create_application("Globex", "Data Engineer")
-    a_round1 = db.create_interview(app_a, 1, 1)
-    a_round2 = db.create_interview(app_a, 2, 2)
-    b_round1 = db.create_interview(app_b, 1, 3)
-    a1_question = db.create_interview_question(a_round1, "What is a Python decorator?", "A wrapper function.")
+def owner_id(test_db_path):
+    """Internal user id of TEST_USER (the default signed-in test account), registered as on first login."""
+    return db.get_or_create_user(TEST_USER["sub"], TEST_USER["email"], TEST_USER["name"])
+
+
+@pytest.fixture
+def other_user_id(test_db_path):
+    """Internal user id of OTHER_USER, a second, unrelated Google account."""
+    return db.get_or_create_user(OTHER_USER["sub"], OTHER_USER["email"], OTHER_USER["name"])
+
+
+@pytest.fixture
+def seeded(owner_id):
+    """Two applications (A, B) of TEST_USER with interview rounds and one question, created through db.py."""
+    app_a = db.create_application(owner_id, "Acme Corp", "Python Developer", notes="seeded")
+    app_b = db.create_application(owner_id, "Globex", "Data Engineer")
+    a_round1 = db.create_interview(owner_id, app_a, 1, 1)
+    a_round2 = db.create_interview(owner_id, app_a, 2, 2)
+    b_round1 = db.create_interview(owner_id, app_b, 1, 3)
+    a1_question = db.create_interview_question(owner_id, a_round1, "What is a Python decorator?",
+                                               "A wrapper function.")
     return {
         "app_a": app_a, "app_b": app_b,
         "a_round1": a_round1, "a_round2": a_round2, "b_round1": b_round1,

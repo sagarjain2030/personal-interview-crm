@@ -31,10 +31,10 @@ def test_each_section_renders_expected_content_on_empty_database(app):
     expect_no_app_errors(app)
 
 
-def test_sections_render_with_data_and_no_errors(app):
-    app_id = db.create_application("Acme Corp", "Python Developer")
-    interview_id = db.create_interview(app_id, 1, 2)
-    db.create_interview_question(interview_id, "Seeded question?")
+def test_sections_render_with_data_and_no_errors(owner_id, app):
+    app_id = db.create_application(owner_id, "Acme Corp", "Python Developer")
+    interview_id = db.create_interview(owner_id, app_id, 1, 2)
+    db.create_interview_question(owner_id, interview_id, "Seeded question?")
     refresh(app)
 
     expect(app.get_by_role("heading", name="Saved Applications")).to_be_visible()

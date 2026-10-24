@@ -1,9 +1,17 @@
+import logging
 import sqlite3
+from contextlib import contextmanager
 
 import streamlit as st
 
 from db import (
+    InvalidIdentityError,
+    MigrationError,
+    NotFoundError,
+    ValidationError,
     init_db,
+    get_or_create_user,
+    validate_google_sub,
     create_application,
     get_all_applications,
     get_application_by_id,
@@ -74,16 +82,38 @@ def interview_labels(interviews):
     })
 
 
-def load_applications():
-    """Return all applications, or None after showing an error if the query fails."""
+logger = logging.getLogger(__name__)
+
+
+def report_db_error(message):
+    """Show a generic message; the details (paths, SQL errors) go only to the server log."""
+    logger.exception(message)
+    st.error(message)
+
+
+@contextmanager
+def handle_save_errors(failure_message):
+    """Show a safe message if a save fails; the rest of the `with` block is skipped."""
     try:
-        return get_all_applications()
-    except sqlite3.Error as error:
-        st.error(f"Failed to load applications with error {error}")
+        yield
+    except ValidationError as error:
+        st.error(str(error))
+    except NotFoundError:
+        st.error("The selected record could not be found.")
+    except sqlite3.Error:
+        report_db_error(failure_message)
+
+
+def load_applications(user_id):
+    """Return the user's applications, or None after showing an error if the query fails."""
+    try:
+        return get_all_applications(user_id)
+    except sqlite3.Error:
+        report_db_error("Failed to load applications.")
         return None
 
 
-def render_jobs_page():
+def render_jobs_page(user_id):
     with st.form("application_form"):
         company = st.text_input("Company").strip()
         role = st.text_input("Role").strip()
@@ -96,8 +126,9 @@ def render_jobs_page():
         if not company or not role:
             st.error("Company and Role are required.")
         else:
-            try:
+            with handle_save_errors("Failed to save application."):
                 application_id = create_application(
+                    user_id,
                     company=company,
                     role=role,
                     raw_job_description=raw_job_description,
@@ -105,11 +136,9 @@ def render_jobs_page():
                     location=location,
                     notes=notes)
                 st.success(f"Application saved successfully! ID: {application_id}")
-            except sqlite3.Error as error:
-                st.error(f"Failed to save application with error {error}")
 
     st.header("Saved Applications")
-    applications = load_applications()
+    applications = load_applications(user_id)
     if applications is None:
         return
     if not applications:
@@ -121,7 +150,11 @@ def render_jobs_page():
 
     labels = application_labels(applications)
     selected_application = st.selectbox("Select Application", labels.keys(), format_func=labels.get)
-    result = get_application_by_id(selected_application)
+    try:
+        result = get_application_by_id(user_id, selected_application)
+    except sqlite3.Error:
+        report_db_error("Failed to load the selected application.")
+        return
     if not result:
         st.error("The selected application could not be loaded.")
         return
@@ -153,31 +186,27 @@ def render_jobs_page():
             st.write(f"Location : {edit_location_details}")
             st.write(f"Notes : {edit_notes_details}")
         else:
-            try:
-                update_application_details(selected_application, edit_company_details,
+            with handle_save_errors("Failed to save edited application."):
+                update_application_details(user_id, selected_application, edit_company_details,
                                            edit_role_details, edit_job_description_details, edit_job_url_details,
                                            edit_location_details, edit_notes_details)
                 st.success(f"Application {selected_application} is updated successfully!")
-            except sqlite3.Error as error:
-                st.error(f"Failed to save edited application with error {error}")
 
     selected_status = st.selectbox("Select Status", APPLICATION_STATUS_LABELS.keys(),
                                    format_func=APPLICATION_STATUS_LABELS.get, index=result[9])
     selected_priority = st.selectbox("Select Priority", APPLICATION_PRIORITY_LABELS.keys(),
                                      format_func=APPLICATION_PRIORITY_LABELS.get, index=result[11] - 1)
     if st.button("Save Changes"):
-        try:
+        with handle_save_errors("Failed to save application."):
             if selected_status != result[9]:
-                update_application_status(selected_application, selected_status)
+                update_application_status(user_id, selected_application, selected_status)
             if selected_priority != result[11]:
-                update_application_priority(selected_application, selected_priority)
+                update_application_priority(user_id, selected_application, selected_priority)
             st.success(f"Application Changes Saved successfully! ID: {selected_application}")
-        except sqlite3.Error as error:
-            st.error(f"Failed to save application with error {error}")
 
 
-def render_interviews_page():
-    applications = load_applications()
+def render_interviews_page(user_id):
+    applications = load_applications(user_id)
     if applications is None:
         return
     if not applications:
@@ -198,18 +227,16 @@ def render_interviews_page():
         if round_number is None or int(round_number) < 1:
             st.error("Round number must be a whole number of 1 or more.")
         else:
-            try:
-                create_interview(selected_application, int(round_number), round_type)
+            with handle_save_errors("Failed to save interview."):
+                create_interview(user_id, selected_application, int(round_number), round_type)
                 st.success(f"Round {int(round_number)} ({INTERVIEW_ROUND_TYPE_LABELS[round_type]}) "
                            f"saved for {labels[selected_application]}.")
-            except sqlite3.Error as error:
-                st.error(f"Failed to save interview with error {error}")
 
     st.subheader("Interview Rounds")
     try:
-        interviews = get_interviews_by_application_id(selected_application)
-    except sqlite3.Error as error:
-        st.error(f"Failed to retrieve interviews with error {error}")
+        interviews = get_interviews_by_application_id(user_id, selected_application)
+    except sqlite3.Error:
+        report_db_error("Failed to retrieve interviews.")
         return
     if not interviews:
         st.info("No interviews recorded for this application yet.")
@@ -227,8 +254,8 @@ def render_interviews_page():
     st.dataframe(rows, hide_index=True)
 
 
-def render_questions_page():
-    applications = load_applications()
+def render_questions_page(user_id):
+    applications = load_applications(user_id)
     if applications is None:
         return
     if not applications:
@@ -239,9 +266,9 @@ def render_questions_page():
     selected_application = st.selectbox("Select Application", labels.keys(), format_func=labels.get)
 
     try:
-        interviews = get_interviews_by_application_id(selected_application)
-    except sqlite3.Error as error:
-        st.error(f"Failed to retrieve interviews with error {error}")
+        interviews = get_interviews_by_application_id(user_id, selected_application)
+    except sqlite3.Error:
+        report_db_error("Failed to retrieve interviews.")
         return
     if not interviews:
         st.info("No interviews recorded for this application yet. Add one on the Interviews page first.")
@@ -262,18 +289,16 @@ def render_questions_page():
         if not question:
             st.error("Interview question is required.")
         else:
-            try:
-                create_interview_question(selected_interview, question,
+            with handle_save_errors("Failed to save question."):
+                create_interview_question(user_id, selected_interview, question,
                                           apparent_answer.strip() or None, better_answer.strip() or None)
                 st.success(f"Question saved for {round_labels[selected_interview]}.")
-            except sqlite3.Error as error:
-                st.error(f"Failed to save question with error {error}")
 
     st.subheader("Saved Questions")
     try:
-        questions = get_questions_by_interview_id(selected_interview)
-    except sqlite3.Error as error:
-        st.error(f"Failed to retrieve questions with error {error}")
+        questions = get_questions_by_interview_id(user_id, selected_interview)
+    except sqlite3.Error:
+        report_db_error("Failed to retrieve questions.")
         return
     if not questions:
         st.info("No questions recorded for this interview yet.")
@@ -290,6 +315,14 @@ def render_questions_page():
             st.text(better_text or "Not recorded")
 
 
+def legacy_owner_google_sub():
+    """Google `sub` that owns records created by the single-user version (used once, when migrating)."""
+    try:
+        return (st.secrets.get("access") or {}).get("allowed_google_sub") or None
+    except FileNotFoundError:
+        return None
+
+
 st.set_page_config(page_title="Personal Interview CRM")
 if not st.user.is_logged_in:
     _, login_col, _ = st.columns([1, 2, 1])
@@ -301,12 +334,14 @@ if not st.user.is_logged_in:
                      icon=":material/login:", width="stretch"):
             st.login()
     st.stop()
-else:
-    sub = st.user.get("sub")
-    if (not st.secrets["access"]["allowed_google_sub"]
-            or st.secrets["access"]["allowed_google_sub"] != sub):
-        st.error("Access Denied")
-        st.stop()
+
+# Any Google account may register. Identity is the `sub` claim from Streamlit's signed session
+# cookie (set by the OIDC login); it is resolved again on every run and never taken from widgets.
+try:
+    google_sub = validate_google_sub(st.user.get("sub"))
+except InvalidIdentityError:
+    st.error("Access Denied")
+    st.stop()
 display_name = (
     st.user.get("name")
     or " ".join(filter(None, [st.user.get("given_name"), st.user.get("family_name")]))
@@ -320,9 +355,14 @@ if user_col.button("Logout"):
     st.logout()
 
 try:
-    init_db()
-except (sqlite3.Error, OSError) as error:
-    st.error(f"Failed to initialize the database with error {error}")
+    init_db(legacy_owner_google_sub())
+    current_user_id = get_or_create_user(google_sub, st.user.get("email"), st.user.get("name"))
+except MigrationError:
+    logger.exception("Database migration is required")
+    st.error("The CRM database needs a one-time upgrade by the administrator. Please try again later.")
+    st.stop()
+except (sqlite3.Error, OSError):
+    report_db_error("Failed to initialize the database.")
     st.stop()
 
 section = st.sidebar.radio(
@@ -332,10 +372,10 @@ section = st.sidebar.radio(
 st.header(section)
 
 if section == "Jobs":
-    render_jobs_page()
+    render_jobs_page(current_user_id)
 elif section == "Interviews":
-    render_interviews_page()
+    render_interviews_page(current_user_id)
 elif section == "Questions":
-    render_questions_page()
+    render_questions_page(current_user_id)
 else:
     st.write(PLACEHOLDERS[section])

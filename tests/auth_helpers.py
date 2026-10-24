@@ -5,13 +5,14 @@ None of these values are real: tests never read .streamlit/secrets.toml and neve
 import json
 
 AUTH_COOKIE_NAME = "_streamlit_user"
-TEST_ALLOWED_SUB = "test-allowed-google-sub"
+TEST_USER_SUB = "test-user-google-sub"
+OTHER_USER_SUB = "other-user-google-sub"
+LEGACY_OWNER_SUB = "test-legacy-owner-google-sub"
 TEST_COOKIE_SECRET = "test-only-cookie-secret-not-used-anywhere-else"
 
-AUTHORIZED_USER = {"sub": TEST_ALLOWED_SUB, "name": "Test Owner", "email": "owner@example.com"}
-UNAUTHORIZED_USER = {"sub": "some-other-google-sub", "name": "Someone Else", "email": "other@example.com"}
-
-ACCESS_SECRETS = {"allowed_google_sub": TEST_ALLOWED_SUB}
+# TEST_USER is the account every AppTest and browser test is signed in as unless a test says otherwise.
+TEST_USER = {"sub": TEST_USER_SUB, "name": "Test Owner", "email": "owner@example.com"}
+OTHER_USER = {"sub": OTHER_USER_SUB, "name": "Someone Else", "email": "other@example.com"}
 
 
 def auth_secrets(redirect_uri):

@@ -1,19 +1,19 @@
 """AppTest fixtures: simulate the Google account Streamlit reports through st.user.
 
 AppTest has no real OIDC login, so `st.user` is backed by a dict the test controls. By default every
-AppTest runs as the authorized owner; tests for the login and access-denied screens change it.
+AppTest runs as TEST_USER; tests for the login screen and for other accounts change it.
 """
 import pytest
 import streamlit as st
 import streamlit.user_info
 
-from auth_helpers import AUTHORIZED_USER
+from auth_helpers import TEST_USER
 
 
 @pytest.fixture(autouse=True)
 def app_user(monkeypatch):
-    """The claims st.user returns. Mutate it (or use sign_out) to change who is signed in."""
-    user = {"is_logged_in": True, **AUTHORIZED_USER}
+    """The claims st.user returns. Mutate it (or use sign_in_as) to change who is signed in."""
+    user = {"is_logged_in": True, **TEST_USER}
     monkeypatch.setattr(streamlit.user_info, "_get_user_info", lambda: user)
 
     def fake_logout():

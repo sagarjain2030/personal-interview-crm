@@ -25,14 +25,14 @@ def open_round(page, application_label, round_label):
 
 
 @pytest.fixture
-def two_rounds():
-    app_id = db.create_application("Questions Co", "Python Developer")
+def two_rounds(owner_id):
+    app_id = db.create_application(owner_id, "Questions Co", "Python Developer")
     return {"app": app_id,
-            "round1": db.create_interview(app_id, 1, 1),
-            "round2": db.create_interview(app_id, 2, 2)}
+            "round1": db.create_interview(owner_id, app_id, 1, 1),
+            "round2": db.create_interview(owner_id, app_id, 2, 2)}
 
 
-def test_create_question_with_multiline_answers(app, two_rounds):
+def test_create_question_with_multiline_answers(owner_id, app, two_rounds):
     refresh(app)
     open_round(app, "Questions Co - Python Developer", "Round 1 — Recruiter / HR Screening")
     expect(app.get_by_text("No questions recorded for this interview yet.")).to_be_visible()
@@ -50,7 +50,7 @@ def test_create_question_with_multiline_answers(app, two_rounds):
         "Mention specific projects\nand link them to my experience."
     expect(app.get_by_label("Interview Question", exact=True)).to_have_value("")  # form cleared
 
-    stored = db.get_questions_by_interview_id(two_rounds["round1"])
+    stored = db.get_questions_by_interview_id(owner_id, two_rounds["round1"])
     assert [q[1:] for q in stored] == [("Why do you want to join us?\nWhat do you know about the team?",
                                         "I like the product.\nI read the engineering blog.",
                                         "Mention specific projects\nand link them to my experience.")]
@@ -63,7 +63,7 @@ def test_create_question_with_multiline_answers(app, two_rounds):
     expect_no_app_errors(app)
 
 
-def test_optional_answers_left_blank_show_not_recorded(app, two_rounds):
+def test_optional_answers_left_blank_show_not_recorded(owner_id, app, two_rounds):
     refresh(app)
     open_round(app, "Questions Co - Python Developer", "Round 2 — Technical Interview")
     save_question_via_ui(app, "Explain list comprehensions.", "A compact loop.", "Add an example.")
@@ -71,12 +71,12 @@ def test_optional_answers_left_blank_show_not_recorded(app, two_rounds):
 
     expect(app.get_by_text("Question 2", exact=True)).to_be_visible()
     expect(app.get_by_text("Not recorded", exact=True)).to_have_count(2)
-    stored = db.get_questions_by_interview_id(two_rounds["round2"])
+    stored = db.get_questions_by_interview_id(owner_id, two_rounds["round2"])
     assert [q[1:] for q in stored] == [("Explain list comprehensions.", "A compact loop.", "Add an example."),
                                        ("What is a generator?", None, None)]
 
 
-def test_special_characters_and_long_text_are_shown_literally(app, two_rounds):
+def test_special_characters_and_long_text_are_shown_literally(owner_id, app, two_rounds):
     question = "What does **kwargs do? <b>not bold</b> & 'quotes' — ✓"
     long_answer = "Long answer. " * 200
     refresh(app)
@@ -87,14 +87,14 @@ def test_special_characters_and_long_text_are_shown_literally(app, two_rounds):
     expect(app.get_by_text("# not a heading", exact=True)).to_be_visible()
     expect(app.get_by_role("heading", name="not a heading")).to_have_count(0)
     assert app.get_by_text("Long answer. Long answer.").inner_text() == long_answer.strip()
-    assert db.get_questions_by_interview_id(two_rounds["round1"])[0][1] == question
+    assert db.get_questions_by_interview_id(owner_id, two_rounds["round1"])[0][1] == question
 
 
-def test_isolation_between_applications_and_rounds(app, two_rounds):
-    db.create_interview_question(two_rounds["round1"], "Application A round 1 question")
-    db.create_interview_question(two_rounds["round2"], "Application A round 2 question")
-    other_app = db.create_application("Isolation B", "Data Engineer")
-    other_round = db.create_interview(other_app, 1, 3)
+def test_isolation_between_applications_and_rounds(owner_id, app, two_rounds):
+    db.create_interview_question(owner_id, two_rounds["round1"], "Application A round 1 question")
+    db.create_interview_question(owner_id, two_rounds["round2"], "Application A round 2 question")
+    other_app = db.create_application(owner_id, "Isolation B", "Data Engineer")
+    other_round = db.create_interview(owner_id, other_app, 1, 3)
     refresh(app)
 
     open_round(app, "Questions Co - Python Developer", "Round 1 — Recruiter / HR Screening")
@@ -118,5 +118,5 @@ def test_isolation_between_applications_and_rounds(app, two_rounds):
     expect(app.get_by_text("Application A round 1 question")).to_be_visible()
     expect(app.get_by_text("Application B question")).to_have_count(0)
 
-    assert [q[1] for q in db.get_questions_by_interview_id(other_round)] == ["Application B question"]
+    assert [q[1] for q in db.get_questions_by_interview_id(owner_id, other_round)] == ["Application B question"]
     expect_no_app_errors(app)

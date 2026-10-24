@@ -37,6 +37,7 @@ def test_corrupt_database_file_shows_error(tmp_path, monkeypatch):
     assert not at.exception
     assert contains(at.error, "Failed to initialize the database")
     assert len(at.sidebar.radio) == 0  # app stopped before rendering pages
+    assert all(str(tmp_path) not in message and "not a database" not in message for message in texts(at.error))
 
 
 def test_unopenable_database_path_shows_error(tmp_path, monkeypatch):
@@ -46,6 +47,7 @@ def test_unopenable_database_path_shows_error(tmp_path, monkeypatch):
     at = run_main()
     assert not at.exception
     assert contains(at.error, "Failed to initialize the database")
+    assert all(str(tmp_path) not in message for message in texts(at.error))  # no server paths
 
 
 @pytest.mark.parametrize("section", ["Jobs", "Interviews", "Questions"])
@@ -93,7 +95,7 @@ def test_save_status_failure_shows_error(seeded, monkeypatch):
 
 
 def test_missing_application_record_shows_error(seeded, monkeypatch):
-    monkeypatch.setattr(db, "get_application_by_id", lambda application_id: None)
+    monkeypatch.setattr(db, "get_application_by_id", lambda user_id, application_id: None)
     at = open_app()
     assert "The selected application could not be loaded." in texts(at.error)
 
@@ -112,3 +114,47 @@ def test_save_question_failure_shows_error(seeded, monkeypatch, fetch_rows):
     click(at, "Save Question")
     assert contains(at.error, "Failed to save question")
     assert fetch_rows("SELECT count(*) FROM interview_questions WHERE question='Will fail'") == [(0,)]
+
+
+def test_raw_database_error_details_are_not_shown(seeded, monkeypatch):
+    monkeypatch.setattr(db, "create_interview", raise_db_error)
+    at = open_app("Interviews")
+    click(at, "Save Interview")
+    assert texts(at.error) == ["Failed to save interview."]
+    assert not contains(at.error, "simulated")
+
+
+def test_loading_selected_application_failure_shows_error(seeded, monkeypatch):
+    monkeypatch.setattr(db, "get_application_by_id", raise_db_error)
+    at = open_app()
+    assert texts(at.error) == ["Failed to load the selected application."]
+
+
+@pytest.mark.parametrize("helper, section, action", [
+    ("update_application_details", "Jobs", "Save Edit Changes"),
+    ("update_application_status", "Jobs", "Save Changes"),
+    ("create_interview", "Interviews", "Save Interview"),
+    ("create_interview_question", "Questions", "Save Question"),
+])
+def test_record_that_disappeared_or_is_not_owned_shows_not_found(seeded, monkeypatch, helper, section, action):
+    """If the data layer denies a write (record gone or owned by someone else), nothing leaks and nothing is saved."""
+    def deny(*args, **kwargs):
+        raise db.NotFoundError("Application not found.")
+    monkeypatch.setattr(db, helper, deny)
+    at = open_app(section)
+    if section == "Jobs" and action == "Save Changes":
+        by_label(at.selectbox, "Select Status").set_value(3)
+    if section == "Questions":
+        by_label(at.text_area, "Interview Question").input("Q")
+    click(at, action)
+    assert texts(at.error) == ["The selected record could not be found."]
+    assert not at.success
+
+
+def test_too_long_input_is_rejected_with_a_clear_message(fetch_rows):
+    at = open_app()
+    by_label(at.text_input, "Company").input("C" * 201)
+    by_label(at.text_input, "Role").input("Dev")
+    click(at, "Save Application")
+    assert texts(at.error) == ["Company must be at most 200 characters."]
+    assert fetch_rows("SELECT count(*) FROM applications") == [(0,)]

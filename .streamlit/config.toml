@@ -1,0 +1,13 @@
+# Committed Streamlit settings. Secrets never go here (see secrets.toml.example).
+
+[server]
+# Streamlit's defaults, stated explicitly so they are not switched off by accident.
+enableCORS = true
+enableXsrfProtection = true
+# The app has no file uploads; keep the limit minimal.
+maxUploadSize = 1
+# Largest WebSocket message (MB). The default is 200; the app's largest field is a 50,000-character JD.
+maxMessageSize = 20
+
+[browser]
+gatherUsageStats = false

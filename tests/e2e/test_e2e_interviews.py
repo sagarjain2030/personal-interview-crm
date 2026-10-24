@@ -15,10 +15,10 @@ def add_round_via_ui(page, number, round_type, application_label):
     expect(page.get_by_text(f"Round {number} ({round_type}) saved for {application_label}.")).to_be_visible()
 
 
-def test_create_interview_rounds(app):
-    other_id = db.create_application("Other Co", "Other Role")
-    app_id = db.create_application("Rounds Co", "Backend Dev")
-    other_status_before = db.get_application_by_id(app_id)[9]
+def test_create_interview_rounds(owner_id, app):
+    other_id = db.create_application(owner_id, "Other Co", "Other Role")
+    app_id = db.create_application(owner_id, "Rounds Co", "Backend Dev")
+    other_status_before = db.get_application_by_id(owner_id, app_id)[9]
     refresh(app)
     open_section(app, "Interviews")
     choose(app, "Select Application", "Rounds Co - Backend Dev")
@@ -33,11 +33,11 @@ def test_create_interview_rounds(app):
         ("1", "Recruiter / HR Screening", "Scheduled"),
         ("2", "Technical Interview", "Scheduled"),
     ]
-    stored = db.get_interviews_by_application_id(app_id)
+    stored = db.get_interviews_by_application_id(owner_id, app_id)
     assert [r[0] for r in stored] == [r["Interview ID"] for r in rows]
     assert [(r[1], r[2], r[3]) for r in stored] == [(1, 1, 0), (2, 2, 0)]
-    assert db.get_interviews_by_application_id(other_id) == []
-    assert db.get_application_by_id(app_id)[9] == other_status_before  # status not changed
+    assert db.get_interviews_by_application_id(owner_id, other_id) == []
+    assert db.get_application_by_id(owner_id, app_id)[9] == other_status_before  # status not changed
 
     refresh(app)
     open_section(app, "Interviews")

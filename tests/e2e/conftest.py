@@ -21,7 +21,7 @@ from types import SimpleNamespace
 import pytest
 from playwright.sync_api import expect
 
-from auth_helpers import ACCESS_SECRETS, AUTHORIZED_USER, auth_secrets, sign_in
+from auth_helpers import TEST_USER, auth_secrets, sign_in
 from ui_helpers import wait_until_loaded, wait_until_login_screen
 
 PROJECT_DIR = pathlib.Path(__file__).resolve().parents[2]
@@ -56,10 +56,8 @@ def _toml_section(name, values):
 
 
 def _write_test_secrets(path, url):
-    path.write_text(
-        _toml_section("auth", auth_secrets(f"{url}/oauth2callback"))
-        + "\n" + _toml_section("access", ACCESS_SECRETS)
-    )
+    # No [access] section: multi-user mode needs no allowlist, and test databases are always fresh.
+    path.write_text(_toml_section("auth", auth_secrets(f"{url}/oauth2callback")))
 
 
 @pytest.fixture
@@ -101,8 +99,8 @@ def prepare_page(page, url, wait=wait_until_loaded):
 
 @pytest.fixture
 def app(page, app_server):
-    """A Chromium page signed in as the authorized owner, with the CRM loaded and ready."""
-    sign_in(page.context, app_server.url, AUTHORIZED_USER)
+    """A Chromium page signed in as TEST_USER, with the CRM loaded and ready."""
+    sign_in(page.context, app_server.url, TEST_USER)
     return prepare_page(page, app_server.url)
 
 
@@ -114,13 +112,14 @@ def login_page(page, app_server):
 
 @pytest.fixture
 def open_new_session(browser, app_server):
-    """Open the app in a brand-new browser context (separate cookies/session), signed in as the owner."""
+    """Open the app in a brand-new browser context (separate cookies/session), signed in as TEST_USER
+    unless other claims are given."""
     contexts = []
 
-    def _open():
+    def _open(claims=TEST_USER):
         context = browser.new_context()
         contexts.append(context)
-        sign_in(context, app_server.url, AUTHORIZED_USER)
+        sign_in(context, app_server.url, claims)
         return prepare_page(context.new_page(), app_server.url)
 
     yield _open

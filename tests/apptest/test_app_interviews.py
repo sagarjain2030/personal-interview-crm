@@ -26,14 +26,14 @@ def test_form_controls_exist_with_readable_round_types(seeded):
     by_label(at.button, "Save Interview")
 
 
-def test_empty_interview_state_for_application_without_rounds():
-    db.create_application("Acme", "Dev")
+def test_empty_interview_state_for_application_without_rounds(owner_id):
+    db.create_application(owner_id, "Acme", "Dev")
     at = open_app("Interviews")
     assert "No interviews recorded for this application yet." in texts(at.info)
 
 
-def test_saving_round_appears_immediately_with_readable_labels(fetch_rows):
-    app_id = db.create_application("Acme", "Dev")
+def test_saving_round_appears_immediately_with_readable_labels(owner_id, fetch_rows):
+    app_id = db.create_application(owner_id, "Acme", "Dev")
     at = open_app("Interviews")
     add_round(at, 2, 2)
 
@@ -45,8 +45,8 @@ def test_saving_round_appears_immediately_with_readable_labels(fetch_rows):
     assert list(table["Result"]) == ["Scheduled"]
 
 
-def test_rounds_sorted_by_round_number():
-    db.create_application("Acme", "Dev")
+def test_rounds_sorted_by_round_number(owner_id):
+    db.create_application(owner_id, "Acme", "Dev")
     at = open_app("Interviews")
     for number, round_type in [(3, 3), (1, 1), (2, 4)]:
         add_round(at, number, round_type)
@@ -72,19 +72,19 @@ def test_switching_applications_shows_correct_rounds(seeded):
     assert list(at.dataframe[0].value["Interview ID"]) == [seeded["b_round1"]]
 
 
-def test_round_number_zero_is_never_stored(fetch_rows):
+def test_round_number_zero_is_never_stored(owner_id, fetch_rows):
     """The browser blocks 0 (see e2e tests). Server-side, Streamlit replaces the out-of-range
     value with the widget default, so we can only assert that 0 never reaches SQLite."""
-    db.create_application("Acme", "Dev")
+    db.create_application(owner_id, "Acme", "Dev")
     at = open_app("Interviews")
     add_round(at, 0, 1)
     assert fetch_rows("SELECT count(*) FROM interviews WHERE round_number < 1") == [(0,)]
 
 
-def test_adding_round_does_not_change_application_status(seeded):
-    before = db.get_application_by_id(seeded["app_a"])
+def test_adding_round_does_not_change_application_status(owner_id, seeded):
+    before = db.get_application_by_id(owner_id, seeded["app_a"])
     at = open_app("Interviews")
     by_label(at.selectbox, "Select Application").set_value(seeded["app_a"]).run()
     add_round(at, 3, 2)
     assert contains(at.success, "Round 3")
-    assert db.get_application_by_id(seeded["app_a"]) == before
+    assert db.get_application_by_id(owner_id, seeded["app_a"]) == before

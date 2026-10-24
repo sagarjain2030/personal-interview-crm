@@ -1,6 +1,6 @@
 # Personal Interview CRM
 
-A local-first, single-user application for organizing a personal job search and learning from interview experiences. Built with Python, Streamlit, and SQLite, the project is designed to grow incrementally into an AI-assisted interview preparation tool.
+A multi-user application for organizing a personal job search and learning from interview experiences. Built with Python, Streamlit, and SQLite, the project is designed to grow incrementally into an AI-assisted interview preparation tool.
 
 ## Project goals
 
@@ -21,7 +21,8 @@ The planned workflow is:
 - **Jobs:** add an application (company, role, full job description, JD URL, location, notes) with required-field validation; list saved applications; select one to edit its details, status, and priority.
 - **Interviews:** select an application, add interview rounds (round number and round type), and view that application's rounds ordered by round number with readable round-type and result labels. New rounds default to the *Scheduled* result.
 - **Questions:** select an application and one of its interview rounds, add a question with your actual answer and an optional better answer, and view that round's saved questions in the order they were added.
-- The database is created automatically from `schema.sql` on first run.
+- **Sign-in with Google** (Streamlit OIDC). Any Google account can register; each account gets its own private workspace, enforced in the database layer. See [SECURITY_AND_DEPLOYMENT.md](SECURITY_AND_DEPLOYMENT.md).
+- The database is created automatically from `schema.sql` on first run; a database from the single-user version is upgraded once (with a backup), its records assigned to the configured legacy owner.
 - Local SQLite storage with UUID primary keys, integer-coded status/type/result values, and success/error messages for database operations.
 
 **Not implemented yet:** Interview and question editing/deletion, topics and knowledge-gap tracking, insights, and AI-powered analysis. The Insights section currently contains a placeholder.
@@ -40,7 +41,9 @@ Hugging Face integration and optional Pydantic validation are being considered f
 personal-interview-crm/
 ├── main.py             # Streamlit interface and navigation
 ├── db.py               # SQLite connection, initialization, inserts, and queries
-├── schema.sql          # Database table definitions
+├── schema.sql          # Database table definitions (multi-user, schema version 1)
+├── SECURITY_AND_DEPLOYMENT.md # Ownership model, migration, abuse protection, Google/Railway setup
+├── .streamlit/         # config.toml (committed) and secrets.toml (Git-ignored; see secrets.toml.example)
 ├── requirements.txt    # Python dependencies
 ├── requirements-dev.txt # Test dependencies (pytest, Playwright)
 ├── pytest.ini          # Test configuration
@@ -65,10 +68,11 @@ On Linux or macOS:
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+cp .streamlit/secrets.toml.example .streamlit/secrets.toml   # then fill in your Google OAuth values
 streamlit run main.py
 ```
 
-The app opens locally in your browser. On startup it calls `init_db()` from `db.py`, which creates `data/interview_crm.db` from `schema.sql` if needed. Existing databases are left unchanged.
+The app opens locally in your browser. After sign-in it calls `init_db()` from `db.py`, which creates `data/interview_crm.db` from `schema.sql` if needed. A database created by the single-user version is migrated once: a backup is written next to it first, and all existing records go to the account in `[access] allowed_google_sub`. See [SECURITY_AND_DEPLOYMENT.md](SECURITY_AND_DEPLOYMENT.md) before upgrading real data.
 
 ## Testing
 
@@ -87,7 +91,7 @@ GitHub Actions (`.github/workflows/tests.yml`) runs the full suite on every push
 
 ## Local data and privacy
 
-Application records, job descriptions, and future interview notes are intended to remain in a **local SQLite database**, not in this GitHub repository. The `.gitignore` excludes database files, virtual environments, Python cache files, and local environment configuration files.
+Application records, job descriptions, and interview notes are stored in a **SQLite database** (local, or on a Railway volume in production), never in this GitHub repository. Each record belongs to one Google account and is only visible to it. The `.gitignore` excludes database files, virtual environments, Python cache files, and local environment configuration files.
 
 If you fork or clone this project, your personal data is not included. Review files before committing to ensure no credentials or personal records have been added to tracked source files.
 
@@ -100,4 +104,4 @@ If you fork or clone this project, your personal data is not included. Review fi
 
 ## Project approach
 
-This is a personal learning project, not a production SaaS product. Development is intentionally incremental, with a small local architecture and manual verification of each completed feature before moving to the next step.
+This is a personal learning project; the multi-user V1 is designed to be deployed on Railway with a single SQLite volume. Development is intentionally incremental, with a small local architecture and manual verification of each completed feature before moving to the next step.

@@ -35,8 +35,8 @@ def test_no_applications_state():
     assert "No saved applications yet. Add one on the Jobs page first." in texts(at.info)
 
 
-def test_application_without_interviews_shows_guidance():
-    db.create_application("Acme", "Dev")
+def test_application_without_interviews_shows_guidance(owner_id):
+    db.create_application(owner_id, "Acme", "Dev")
     at = open_app("Questions")
     assert "No interviews recorded for this application yet. Add one on the Interviews page first." in texts(at.info)
     assert len(at.selectbox) == 1  # only the application dropdown
@@ -71,18 +71,18 @@ def test_dropdowns_use_uuids_and_list_only_selected_applications_rounds(seeded):
     assert rounds.value == seeded["b_round1"]
 
 
-def test_duplicate_round_labels_are_distinguishable():
-    app_id = db.create_application("Acme", "Dev")
-    first = db.create_interview(app_id, 2, 2)
-    second = db.create_interview(app_id, 2, 2)
+def test_duplicate_round_labels_are_distinguishable(owner_id):
+    app_id = db.create_application(owner_id, "Acme", "Dev")
+    first = db.create_interview(owner_id, app_id, 2, 2)
+    second = db.create_interview(owner_id, app_id, 2, 2)
     at = open_app("Questions")
     options = by_label(at.selectbox, "Select Interview Round").options
     assert sorted(options) == sorted([f"Round 2 — Technical Interview ({first[:8]})",
                                       f"Round 2 — Technical Interview ({second[:8]})"])
     select(at, "Select Interview Round", second)
     save_question(at, "For the second duplicate round")
-    assert [q[1] for q in db.get_questions_by_interview_id(second)] == ["For the second duplicate round"]
-    assert db.get_questions_by_interview_id(first) == []
+    assert [q[1] for q in db.get_questions_by_interview_id(owner_id, second)] == ["For the second duplicate round"]
+    assert db.get_questions_by_interview_id(owner_id, first) == []
 
 
 @pytest.mark.parametrize("blank", ["", "   ", "\n\t  \n"])

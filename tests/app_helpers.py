@@ -3,15 +3,17 @@ import pathlib
 
 from streamlit.testing.v1 import AppTest
 
-from auth_helpers import ACCESS_SECRETS
-
 MAIN_PY = pathlib.Path(__file__).resolve().parent.parent / "main.py"
 
 
 def new_app():
-    """An AppTest for main.py using test-only secrets (never the real .streamlit/secrets.toml)."""
+    """An AppTest for main.py using test-only secrets (never the real .streamlit/secrets.toml).
+
+    AppTest falls back to the real secrets file when `at.secrets` is empty, so a test-only value is
+    always set. No legacy owner is configured by default; legacy-migration tests set one explicitly.
+    """
     at = AppTest.from_file(str(MAIN_PY), default_timeout=30)
-    at.secrets["access"] = dict(ACCESS_SECRETS)
+    at.secrets["access"] = {"allowed_google_sub": ""}
     return at
 
 
