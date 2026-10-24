@@ -59,6 +59,10 @@ PLACEHOLDERS = {
     "Insights": "Interview insights will appear here in a later step.",
 }
 
+PRIVACY_POLICY_URL = "https://sagarjain.in/interview-crm/privacy/"
+TERMS_OF_SERVICE_URL = "https://sagarjain.in/interview-crm/terms/"
+LEGAL_LINKS = f"[Privacy Policy]({PRIVACY_POLICY_URL}) · [Terms of Service]({TERMS_OF_SERVICE_URL})"
+
 
 def unique_labels(labels):
     """Append a short ID suffix to duplicate labels so they stay distinguishable in a selectbox."""
@@ -333,6 +337,7 @@ if not st.user.is_logged_in:
         if st.button("Sign in with Google", type="primary",
                      icon=":material/login:", width="stretch"):
             st.login()
+        st.caption(LEGAL_LINKS)
     st.stop()
 
 # Any Google account may register. Identity is the `sub` claim from Streamlit's signed session
@@ -369,6 +374,7 @@ section = st.sidebar.radio(
     "Navigation",
     ["Jobs", "Interviews", "Questions", "Insights"],
 )
+st.sidebar.caption(LEGAL_LINKS)
 st.header(section)
 
 if section == "Jobs":

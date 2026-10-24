@@ -166,3 +166,19 @@ def test_session_state_cannot_override_the_user(seeded, other_user_id):
     at.session_state["current_user_id"] = other_user_id
     at.run()
     assert set(at.dataframe[0].value["Company"]) == {"Acme Corp", "Globex"}
+
+
+PRIVACY_URL = "https://sagarjain.in/interview-crm/privacy/"
+TERMS_URL = "https://sagarjain.in/interview-crm/terms/"
+LEGAL_LINKS = f"[Privacy Policy]({PRIVACY_URL}) · [Terms of Service]({TERMS_URL})"
+
+
+def test_login_screen_links_privacy_policy_and_terms(sign_in_as):
+    sign_in_as(None)
+    at = new_app().run()
+    assert LEGAL_LINKS in texts(at.caption)
+
+
+def test_sidebar_links_privacy_policy_and_terms():
+    at = open_app()
+    assert LEGAL_LINKS in texts(at.sidebar.caption)

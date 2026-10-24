@@ -100,3 +100,18 @@ def test_two_accounts_at_the_same_time_only_see_their_own_data(app, open_new_ses
 
     assert [r[1] for r in db.get_all_applications(owner_id)] == ["Owner Only Co"]
     assert [r[1] for r in db.get_all_applications(other_user_id)] == ["Other Only Co"]
+
+
+LEGAL_LINKS = {"Privacy Policy": "https://sagarjain.in/interview-crm/privacy/",
+               "Terms of Service": "https://sagarjain.in/interview-crm/terms/"}
+
+
+def test_login_screen_shows_privacy_policy_and_terms_links(login_page):
+    for name, url in LEGAL_LINKS.items():
+        expect(login_page.get_by_role("link", name=name, exact=True)).to_have_attribute("href", url)
+
+
+def test_sidebar_shows_privacy_policy_and_terms_links(app):
+    sidebar = app.get_by_test_id("stSidebar")
+    for name, url in LEGAL_LINKS.items():
+        expect(sidebar.get_by_role("link", name=name, exact=True)).to_have_attribute("href", url)
