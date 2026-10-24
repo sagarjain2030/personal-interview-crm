@@ -1,1 +1,1 @@
-streamlit[auth]
+streamlit[auth]==1.65.0
