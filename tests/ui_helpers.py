@@ -16,7 +16,14 @@ def wait_until_idle(page):
 
 
 def wait_until_loaded(page):
+    """Wait for the signed-in CRM (the login screen shows the same title, so also wait for Logout)."""
     expect(page.get_by_role("heading", name="Personal Interview CRM", level=1)).to_be_visible()
+    expect(page.get_by_role("button", name="Logout")).to_be_visible()
+    wait_until_idle(page)
+
+
+def wait_until_login_screen(page):
+    expect(page.get_by_role("button", name="Sign in with Google")).to_be_visible()
     wait_until_idle(page)
 
 

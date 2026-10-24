@@ -3,17 +3,26 @@ import pathlib
 
 from streamlit.testing.v1 import AppTest
 
+from auth_helpers import ACCESS_SECRETS
+
 MAIN_PY = pathlib.Path(__file__).resolve().parent.parent / "main.py"
+
+
+def new_app():
+    """An AppTest for main.py using test-only secrets (never the real .streamlit/secrets.toml)."""
+    at = AppTest.from_file(str(MAIN_PY), default_timeout=30)
+    at.secrets["access"] = dict(ACCESS_SECRETS)
+    return at
 
 
 def run_main():
     """Run main.py once without navigating or asserting (for start-up failure tests)."""
-    return AppTest.from_file(str(MAIN_PY), default_timeout=30).run()
+    return new_app().run()
 
 
 def open_app(section="Jobs"):
     """Run main.py headlessly (against the test database) and switch to the given sidebar section."""
-    at = AppTest.from_file(str(MAIN_PY), default_timeout=30)
+    at = new_app()
     at.run()
     if section != "Jobs":
         at.sidebar.radio[0].set_value(section).run()
