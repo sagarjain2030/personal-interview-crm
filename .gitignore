@@ -10,6 +10,8 @@ venv/
 .env
 .env.*
 !.env.example
+.streamlit/secrets.toml
+secrets.toml
 
 # Local SQLite databases
 *.db

@@ -291,7 +291,33 @@ def render_questions_page():
 
 
 st.set_page_config(page_title="Personal Interview CRM")
-st.title("Personal Interview CRM")
+if not st.user.is_logged_in:
+    _, login_col, _ = st.columns([1, 2, 1])
+    with login_col.container(border=True):
+        st.title("Personal Interview CRM")
+        st.caption("Track job applications, interview rounds and questions in one place.")
+        st.write("Sign in to continue.")
+        if st.button("Sign in with Google", type="primary",
+                     icon=":material/login:", width="stretch"):
+            st.login()
+    st.stop()
+else:
+    sub = st.user.get("sub")
+    if (not st.secrets["access"]["allowed_google_sub"]
+            or st.secrets["access"]["allowed_google_sub"] != sub):
+        st.error("Access Denied")
+        st.stop()
+display_name = (
+    st.user.get("name")
+    or " ".join(filter(None, [st.user.get("given_name"), st.user.get("family_name")]))
+    or st.user.get("email")
+    or "Signed-in user"
+)
+title_col, user_col = st.columns([3, 1], vertical_alignment="bottom")
+title_col.title("Personal Interview CRM")
+user_col.markdown(f"**{display_name}**")
+if user_col.button("Logout"):
+    st.logout()
 
 try:
     init_db()
