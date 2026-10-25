@@ -128,8 +128,8 @@ If the wrong `sub` was configured, the data is not lost; fix it with:
 - **Account deletion / data export** (privacy requests from external users) is not implemented.
 - **`resume_versions.file_path`** exists in the schema but is not written by the app. Never open a
   file path that came from user input if file uploads are added later.
-- **Uncaught exceptions** still show Streamlit's error box with a traceback by default; set
-  `STREAMLIT_CLIENT_SHOW_ERROR_DETAILS=none` in production (Section 7).
+- **Uncaught exceptions** show Streamlit's error box with a traceback in local development; the
+  production start (`serve.py`) sets `client.showErrorDetails = none` (Section 7).
 
 ## 5. DDoS and abuse protection — who does what
 
@@ -163,6 +163,10 @@ Also set Railway usage limits / alerts so an attack cannot create an unbounded b
      `https://<your-railway-or-custom-domain>/oauth2callback` (production). Must match
      `[auth] redirect_uri` exactly.
    - Consider separate OAuth clients for local and production.
+   - Use a subdomain of the verified `sagarjain.in` (e.g. `crm.sagarjain.in`, a Railway custom domain) for
+     production, not `*.up.railway.app`: `up.railway.app` is a public suffix, so each Railway hostname
+     would be a separate domain that has to be added to *Authorized domains* and verified by you for
+     branding verification.
 3. Never commit the client secret. If it is ever exposed, rotate it in the console.
 
 To find your own `sub` for `allowed_google_sub`: sign in to the *old* version locally and temporarily
@@ -171,23 +175,49 @@ log it in production.
 
 ## 7. Railway configuration (manual)
 
-1. Create a service from the GitHub repository (Railway detects Python; `.python-version` pins 3.14.6).
-   Start command:
-   `streamlit run main.py --server.address 0.0.0.0 --server.port $PORT --server.headless true`
-2. **Volume:** add one volume to the service, e.g. mount path `/data`. Set
-   `INTERVIEW_CRM_DB_PATH=/data/interview_crm.db`. Keep replicas at 1 (volumes do not support replicas).
-   Expect a short downtime on each redeploy.
-3. **Secrets:** Streamlit reads `.streamlit/secrets.toml`. Provide it without committing it, e.g. store
-   the whole TOML in a Railway variable (`STREAMLIT_SECRETS_TOML`) and write it to
-   `.streamlit/secrets.toml` in the start command before `streamlit run`. Use a new, long
-   `cookie_secret` for production and `redirect_uri = "https://<domain>/oauth2callback"`.
-4. Variables: `STREAMLIT_CLIENT_SHOW_ERROR_DETAILS=none` (hide tracebacks from users).
-5. **Migrating existing data:** upload your local database to the volume once (while the service is
+All service settings are made in the Railway dashboard. New services cannot use `railway.toml` /
+`railway.json` (config-as-code is closed to new services; legacy support ends 2026-12-01), and no
+`.railway/` infrastructure-as-code is used. Railpack builds the app (`.python-version` pins 3.14.6).
+`serve.py` starts Streamlit on `$PORT` with tracebacks hidden from visitors (`showErrorDetails = none`).
+
+1. Create a service from the GitHub repository, trigger branch `main`. Keep replicas at 1.
+   In the service's Settings page:
+   - **Deploy → Custom Start Command:** `python serve.py`. Required: without it Railpack runs
+     `python main.py`, which does not start the Streamlit server.
+   - **Deploy → Healthcheck Path:** `/_stcore/health` (default timeout 300 s is enough).
+   - **Deploy → Restart Policy:** *On Failure* (Railway's default; max 10 retries on free/trial plans).
+   - **Build → Watch Paths** (optional, recommended): one pattern per line,
+     ```text
+     **
+     !/log.txt
+     ```
+     The *Daily Commit* workflow changes only `log.txt` and its pushes start no Tests run (they use
+     `GITHUB_TOKEN`), so without this rule every daily commit would redeploy and briefly restart
+     production without passing through Wait for CI. Every other change still deploys. Railway applies
+     negations only after a preceding include rule, hence the `**` line.
+2. **Volume:** add one volume to the service, mount path `/data`. Expect a short downtime on each redeploy.
+3. **Variables** (Service → Variables):
+   - `INTERVIEW_CRM_DB_PATH=/data/interview_crm.db`
+   - `STREAMLIT_SECRETS_TOML`: the complete production `secrets.toml` (multi-line value) with a **new**
+     `cookie_secret` (≥ 32 characters, never the local one), the production client ID/secret, and
+     `redirect_uri = "https://<domain>/oauth2callback"`. `serve.py` refuses to start (without printing any
+     value) if it is missing, not TOML, lacks an `[auth]` key, or has a non-HTTPS redirect URI or a short
+     cookie secret. It writes the secrets to a `0600` temporary file outside the repository and removes
+     the variable from Streamlit's environment.
+4. **Domain:** add the custom domain (Service → Settings → Networking), then register its
+   `https://<domain>/oauth2callback` in the Google OAuth client (Section 6).
+5. **Wait for CI:** Service → Settings → enable *Wait for CI* (shown once Railway's GitHub app has the
+   updated permissions; `tests.yml` runs on every push). A failing Tests run skips the deployment.
+   A manual *Redeploy* bypasses this gate.
+6. **Migrating existing data:** upload your local database to the volume once (while the service is
    stopped), with `allowed_google_sub` set; the first start migrates it and writes a backup on the volume.
    For a fresh start, simply leave the volume empty.
-6. Enable volume backups (manual and scheduled) in Railway, and set usage limits/alerts.
-7. Know where the WAF toggle is (Service → Settings → Edge → Under Attack Mode) before you need it.
-8. Health check path: `/_stcore/health`.
+7. **Backups:** enable volume backups (Volume → Backups; manual and scheduled). For a database-level
+   copy, run `python backup_db.py backup /data/backups/interview_crm-<date>.db` in the service shell
+   (`railway ssh`), download it, and check it with `python backup_db.py verify <file>`. Test a restore
+   once: restore into a separate location, verify, never over the live file while the app runs.
+8. Set usage limits/alerts. Know where the WAF toggle is (Service → Settings → Edge → Under Attack Mode)
+   before you need it.
 
 ## 8. Manual security test checklist
 

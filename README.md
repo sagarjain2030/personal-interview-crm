@@ -42,7 +42,8 @@ personal-interview-crm/
 ├── main.py             # Streamlit interface and navigation
 ├── db.py               # SQLite connection, initialization, inserts, and queries
 ├── schema.sql          # Database table definitions (multi-user, schema version 1)
-├── SECURITY_AND_DEPLOYMENT.md # Ownership model, migration, abuse protection, Google/Railway setup
+├── backup_db.py        # Online SQLite backup and verification (python backup_db.py backup|verify)
+├── serve.py            # Production start: secrets from STREAMLIT_SECRETS_TOML, then streamlit run├── SECURITY_AND_DEPLOYMENT.md # Ownership model, migration, abuse protection, Google/Railway setup
 ├── .streamlit/         # config.toml (committed) and secrets.toml (Git-ignored; see secrets.toml.example)
 ├── requirements.txt    # Python dependencies
 ├── requirements-dev.txt # Test dependencies (pytest, Playwright)

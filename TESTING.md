@@ -88,6 +88,10 @@ Every test runs as a simulated Google account: `TEST_USER` by default, `OTHER_US
 | `tests/apptest/test_app_auth.py` | login gate, registration, rejected identities, logout, identity re-resolved each run |
 | `tests/apptest/test_app_multi_user.py` | two accounts in the UI, legacy upgrade at start-up |
 | `tests/e2e/test_e2e_auth.py` | real browser: new account, invalid cookie claims, forged cookie, two accounts at once, logout |
+| `tests/e2e/test_e2e_production_start.py` | `serve.py` (Railway start command): secrets from `STREAMLIT_SECRETS_TOML` are checked, written to a private file, never printed or inherited; health check; sign-in with the variable's `cookie_secret` |
+| `tests/db/test_backup_db.py` | `backup_db.py`: complete online backup (including WAL commits), owner-only permissions, never overwrites, `verify` rejects bad files, a restored copy works with the app and keeps isolation |
+
+CI runs only `tests/db`, `tests/apptest` and `tests/e2e`; put new tests in one of these folders.
 
 The isolation tests were checked by mutation: re-introducing an IDOR bug (e.g. dropping `AND user_id = ?` from any query) makes them fail.
 
